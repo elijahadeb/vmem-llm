@@ -1,0 +1,13 @@
+target/
+__pycache__/
+*.o
+*.bin
+
+# Ignore CMake generated files
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+Makefile
+cmake_install.cmake
+vmem-llm
+build/
