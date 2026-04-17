@@ -7,6 +7,8 @@
 #include <iostream>
 #include <print>
 #include <safetensors.h>
+#include <span>
+#include <string_view>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -67,12 +69,25 @@ int init_tensor_loader() {
 
   std::print("\njson metadate size = {}", json_size);
 
+  // to read the json metadata we'd need to start from byte offset 8
+  // we'd use the object -> std::span - so that the cpu is aware out of the box
+  // - the boundary of what I expect. it packages the memory address with a
+  // boundary. instead of passing a blind pointer and a separate number and
+  // hoping the CPU math stays correct. it's called memory bookkeeping.
+
+  std::span<const uint8_t> raw_json_data(data_ptr + 8, json_size);
+  std::string_view json_metadata(
+      reinterpret_cast<const char *>(raw_json_data.data()),
+      raw_json_data.size());
+
+  std::print("\njson metadata:\n{}\n", json_metadata);
+
   close(fd);
   return 0;
 }
 
-// step 3: parse the json metadata
+// TODO: step 3: parse the json metadata
 
-// step 4: mmap the weight data section
+// TODO: step 4: mmap the weight data section
 
-// step 5: use offset from the metadata to find each tensor
+// TODO: step 5: use offset from the metadata to find each tensor
