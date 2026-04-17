@@ -1,7 +1,8 @@
-#include <iostream>
+#include <safetensors.h>
 // #include <vector>
 
 int main() {
-  std::cout << "[Sovereign Engine] systems online" << std::endl;
+
+  init_tensor_loader();
   return 0;
 }
