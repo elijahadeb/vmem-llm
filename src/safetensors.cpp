@@ -7,11 +7,13 @@
 #include <iostream>
 #include <print>
 #include <safetensors.h>
-#include <span>
+// #include <span>
+#include "../include/nlohmann/json.hpp"
 #include <string_view>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <unordered_map>
 
 namespace fs = std::filesystem;
 
@@ -61,32 +63,80 @@ int init_tensor_loader() {
 
   unsigned char *data_ptr = static_cast<unsigned char *>(mapped);
 
+  if (file_size < 8) {
+    std::print("\nfile is too small to have a header");
+    munmap(mapped, file_size);
+    close(fd);
+    return 1;
+  }
+
   uint64_t json_size = 0;
 
   for (int i = 0; i < 8; i++) {
-    json_size |= static_cast<uint64_t>(data_ptr[i]) << (i * 8);
+    json_size |=
+        static_cast<uint64_t>(data_ptr[i])
+        << (i * 8); // i preformed a bitwise operation here. to shift per 8bits.
   }
 
-  std::print("\njson metadate size = {}", json_size);
+  if (file_size < 8 + json_size) {
+    std::print("\nfile is corrupted: json size exceeds file bounds");
+    close(fd);
+    munmap(mapped, file_size);
+    return 1;
+  }
+
+  std::print("\njson metadate size = {}\n", json_size);
 
   // to read the json metadata we'd need to start from byte offset 8
-  // we'd use the object -> std::span - so that the cpu is aware out of the box
-  // - the boundary of what I expect. it packages the memory address with a
-  // boundary. instead of passing a blind pointer and a separate number and
-  // hoping the CPU math stays correct. it's called memory bookkeeping.
 
-  std::span<const uint8_t> raw_json_data(data_ptr + 8, json_size);
-  std::string_view json_metadata(
-      reinterpret_cast<const char *>(raw_json_data.data()),
-      raw_json_data.size());
+  std::string_view json_metadata(reinterpret_cast<const char *>(data_ptr + 8),
+                                 json_size);
 
   std::print("\njson metadata:\n{}\n", json_metadata);
 
+  // TODO: step 3: parse the json metadata
+
+  // type alias - nlohmann is the namespace while json is the class - yes a
+  // type - hence - type alias.
+  using json = nlohmann::json;
+  json parsed = json::parse(json_metadata);
+  std::print("\nparsed json:\n{}\n", parsed.dump(1, '\t'));
+
+  //"model.layers.9.self_attn.q_proj.weight": {
+  //  "data_offsets": [2190655488, 2199044096],
+  //  "dtype": "BF16",
+  //  "shape": [2048, 2048]
+
+  struct TensorInfo {
+    std::string dtype;
+    uint64_t offset_start;
+    uint64_t offset_end;
+    std::vector<uint64_t> shape;
+  };
+
+  std::unordered_map<std::string, TensorInfo> tensors; // a hash map.
+
+  for (auto &[name, info] : parsed.items()) {
+
+    if (name == "__metadata__")
+      continue;
+
+    TensorInfo t;
+    t.dtype = info["dtype"]; // operator overloading.
+    t.shape =
+        info["shape"].get<std::vector<uint64_t>>(); // explicit type conversion
+    t.offset_start = info["data_offsets"][0];
+    t.offset_end = info["data_offsets"][1];
+
+    tensors[name] = t; // hash map insertion
+  }
+
+  std::print("\nloaded {} tensors", tensors.size());
+
+  munmap(mapped, file_size);
   close(fd);
   return 0;
 }
-
-// TODO: step 3: parse the json metadata
 
 // TODO: step 4: mmap the weight data section
 

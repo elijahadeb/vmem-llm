@@ -18,5 +18,3 @@ mmap_sandbox.cpp
 
 *.safetensors
 *.gguf
-.cache/
-.cache/
