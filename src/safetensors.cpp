@@ -4,11 +4,13 @@
 #include <cstdint>
 #include <fcntl.h> //posix for open()
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <print>
 #include <safetensors.h>
 // #include <span>
 #include "../include/nlohmann/json.hpp"
+#include <stdexcept>
 #include <string_view>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -75,7 +77,7 @@ int init_tensor_loader() {
   for (int i = 0; i < 8; i++) {
     json_size |=
         static_cast<uint64_t>(data_ptr[i])
-        << (i * 8); // i preformed a bitwise operation here. to shift per 8bits.
+        << (i * 8); // i performed a bitwise operation here. to shift per 8bits.
   }
 
   if (file_size < 8 + json_size) {
@@ -114,7 +116,23 @@ int init_tensor_loader() {
     std::vector<uint64_t> shape;
   };
 
-  std::unordered_map<std::string, TensorInfo> tensors; // a hash map.
+  // functor: hash object...
+
+  struct string_hash {
+    using is_transparent = void;
+
+    size_t operator()(std::string_view sv) const {
+      return std::hash<std::string_view>{}(sv);
+    }
+
+    size_t operator()(std::string s) const {
+      return std::hash<std::string>{}(s);
+    }
+  };
+
+  std::unordered_map<std::string, TensorInfo, string_hash,
+                     std::equal_to<>>
+      tensors; // a hash map.
 
   for (auto &[name, info] : parsed.items()) {
 
@@ -128,10 +146,23 @@ int init_tensor_loader() {
     t.offset_start = info["data_offsets"][0];
     t.offset_end = info["data_offsets"][1];
 
-    tensors[name] = t; // hash map insertion
+    tensors[name] = std::move(t); // hash map insertion
   }
 
   std::print("\nloaded {} tensors", tensors.size());
+
+  const std::string_view target = "model.embed_tokens.weight";
+
+  // build a comparator
+
+  auto it = tensors.find(target);
+
+  if (it == tensors.end()) {
+    std::print("error: could not find tensor: {}\n", target);
+    return 1;
+  }
+
+  const TensorInfo &t = it->second;
 
   munmap(mapped, file_size);
   close(fd);
