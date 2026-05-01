@@ -4,13 +4,11 @@
 #include <cstdint>
 #include <fcntl.h> //posix for open()
 #include <filesystem>
-#include <functional>
 #include <iostream>
 #include <print>
 #include <safetensors.h>
 // #include <span>
 #include "../include/nlohmann/json.hpp"
-#include <stdexcept>
 #include <string_view>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -104,11 +102,6 @@ int init_tensor_loader() {
   json parsed = json::parse(json_metadata);
   std::print("\nparsed json:\n{}\n", parsed.dump(1, '\t'));
 
-  //"model.layers.9.self_attn.q_proj.weight": {
-  //  "data_offsets": [2190655488, 2199044096],
-  //  "dtype": "BF16",
-  //  "shape": [2048, 2048]
-
   struct TensorInfo {
     std::string dtype;
     uint64_t offset_start;
@@ -118,21 +111,19 @@ int init_tensor_loader() {
 
   // functor: hash object...
 
-  struct string_hash {
-    using is_transparent = void;
+  // struct string_hash {
+  //   using is_transparent = void;
+  //
+  //   size_t operator()(std::string_view sv) const {
+  //     return std::hash<std::string_view>{}(sv);
+  //   }
+  //
+  //   size_t operator()(std::string s) const {
+  //     return std::hash<std::string>{}(s);
+  //   }
+  // };
 
-    size_t operator()(std::string_view sv) const {
-      return std::hash<std::string_view>{}(sv);
-    }
-
-    size_t operator()(std::string s) const {
-      return std::hash<std::string>{}(s);
-    }
-  };
-
-  std::unordered_map<std::string, TensorInfo, string_hash,
-                     std::equal_to<>>
-      tensors; // a hash map.
+  std::unordered_map<std::string, TensorInfo> tensors; // a hash map.
 
   for (auto &[name, info] : parsed.items()) {
 
@@ -151,18 +142,25 @@ int init_tensor_loader() {
 
   std::print("\nloaded {} tensors", tensors.size());
 
-  const std::string_view target = "model.embed_tokens.weight";
+  const std::string target = "model.embed_tokens.weight";
+  const TensorInfo &t = tensors[target];
+
+  size_t data_section_starts = 8 + json_size;
+
+  const uint8_t *tensor_bytes = data_ptr + data_section_starts + t.offset_start;
+
+  uint64_t tensor_size = t.offset_start - t.offset_end;
 
   // build a comparator
-
-  auto it = tensors.find(target);
-
-  if (it == tensors.end()) {
-    std::print("error: could not find tensor: {}\n", target);
-    return 1;
-  }
-
-  const TensorInfo &t = it->second;
+  //
+  // auto it = tensors.find(target);
+  //
+  // if (it == tensors.end()) {
+  //   std::print("error: could not find tensor: {}\n", target);
+  //   return 1;
+  // }
+  //
+  // const TensorInfo &t = it->second;
 
   munmap(mapped, file_size);
   close(fd);
