@@ -9,6 +9,7 @@
 #include <safetensors.h>
 // #include <span>
 #include "../include/nlohmann/json.hpp"
+#include <stdexcept>
 #include <string_view>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -16,6 +17,18 @@
 #include <unordered_map>
 
 namespace fs = std::filesystem;
+
+size_t bytes_per_element(const std::string &dtype) {
+  if (dtype == "BF16" || dtype == "F16" || dtype == "I16")
+    return 2;
+  if (dtype == "F32" || dtype == "I32")
+    return 4;
+  if (dtype == "F64" || dtype == "I64")
+    return 8;
+  if (dtype == "I8" || dtype == "U8" || dtype == "BOOL")
+    return 1;
+  throw std::runtime_error("unknown dtype: " + dtype);
+}
 
 int init_tensor_loader() {
   fs::path file_path = "../models/model.safetensors";
@@ -146,10 +159,9 @@ int init_tensor_loader() {
   const TensorInfo &t = tensors[target];
 
   size_t data_section_starts = 8 + json_size;
-
   const uint8_t *tensor_bytes = data_ptr + data_section_starts + t.offset_start;
 
-  uint64_t tensor_size = t.offset_start - t.offset_end;
+  uint64_t tensor_size = t.offset_end - t.offset_start;
 
   // build a comparator
   //
@@ -161,6 +173,38 @@ int init_tensor_loader() {
   // }
   //
   // const TensorInfo &t = it->second;
+
+  uint64_t expected = 1;
+
+  for (auto dim : t.shape) {
+    expected *= dim;
+  }
+
+  expected = expected * bytes_per_element(t.dtype);
+
+  // if (t.dtype == "BF16" || t.dtype == "FP16") {
+  //   expected = expected * 2;
+  // } else if (t.dtype == "FP32") {
+  //   expected *= 4;
+  // }
+
+  std::println("Tensor, {}", target);
+  std::println("shape = [");
+  for (auto dim : t.shape) {
+    std::print("{} ", dim);
+  }
+  std::print("]\n");
+  std::print("data-type = {}\n", t.dtype);
+  std::print("size of tensor: {} - from offset: {} bytes\n", target,
+             tensor_size);
+  std::print("expected from shape: {} bytes\n", expected);
+  std::print("{}\n", tensor_size == expected ? "YES" : "NO");
+
+  std::print("first 16 bytes: \n");
+  for (int i = 0; i < 16; i++) {
+    std::println("0x{:02X}", tensor_bytes[i]);
+  }
+  std::println();
 
   munmap(mapped, file_size);
   close(fd);
