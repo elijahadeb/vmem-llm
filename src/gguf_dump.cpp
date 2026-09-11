@@ -1,72 +1,56 @@
 #include <cstdint>
+#include <cstring>
 #include <fstream>
-#include <map>
-#include <stdexcept>
+#include <iostream>
 #include <string>
-#include <variant>
-#include <vector>
 
-// #include <iostream>
-
-// header parser
-
-struct gguf_header_t {
-  char magic[4];
-  uint32_t version;
-  uint64_t tensor_count;
-  uint64_t metadata_kv_count;
-};
-
-enum class GGUFType : uint32_t {
-  UINT8 = 0,
-  INT8 = 1,
-  UINT16 = 2,
-  INT16 = 3,
-  UINT32 = 4,
-  INT32 = 5,
-  FLOAT32 = 6,
-  BOOL = 7,
-  STRING = 8,
-  ARRAY = 9,
-  UINT64 = 10,
-  INT64 = 11,
-};
-
-struct GGUFValue;
-
-using GGUFArray = std::vector<GGUFValue>;
-
-struct GGUFValue {
-  std::variant<uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, float,
-               bool, std::string, uint64_t, int64_t, double, GGUFArray>
-      data;
-};
-
-struct GGUFTensorInfo {
-  std::string name;
-  std::vector<uint64_t> dimensions;
-  uint32_t type;
-  uint64_t offset;
-};
-
-class GGUFParser {
-public:
-  struct Header {
-    char magic[4];
-    uint32_t version;
-    uint64_t tensor_count;
-    uint64_t metadata_kv_count;
-  } header;
-
-  std::map<std::string, GGUFValue> metadata;
-  std::vector<GGUFTensorInfo> tensors;
-
-  explicit GGUFParser(const std::string &filepath) {
-    std::ifstream file(filepath, std::ios::binary);
-    if (!file.is_open()) {
-      throw std::runtime_error("failed to open file: " + filepath);
-    }
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    std::cerr << "usage: " << argv[0] << " <model.gguf>\n";
+    return 1;
   }
-};
 
-int main() { return 0; }
+  std::ifstream f(argv[1], std::ios::binary);
+  if (!f) {
+    std::cerr << "fopen error\n";
+    return 1;
+  }
+
+  char magic[4];
+  if (!f.read(magic, 4)) {
+    std::cerr << "short read on magic\n";
+    return 1;
+  }
+  if (std::memcmp(magic, "GGUF", 4) != 0) {
+    std::cerr << "not a gguf file\n";
+    return 1;
+  }
+  std::cout << "magic:  " << std::string(magic, 4) << "        (cursor now "
+            << f.tellg() << ")\n";
+
+  uint32_t version;
+  if (!f.read(reinterpret_cast<char *>(&version), sizeof(version))) {
+    std::cerr << "short read on version\n";
+    return 1;
+  }
+  std::cout << "version: " << version << "         (cursor now " << f.tellg()
+            << ")\n";
+
+  uint64_t tensor_count;
+  if (!f.read(reinterpret_cast<char *>(&tensor_count), sizeof(tensor_count))) {
+    std::cerr << "short read on tensor_count\n";
+    return 1;
+  }
+  std::cout << "tensor_count: " << tensor_count << "    (cursor now "
+            << f.tellg() << ")\n";
+
+  uint64_t kv_count;
+  if (!f.read(reinterpret_cast<char *>(&kv_count), sizeof(kv_count))) {
+    std::cerr << "short read on kv_count\n";
+    return 1;
+  }
+  std::cout << "kv_count: " << kv_count << "        (cursor now " << f.tellg()
+            << ")\n";
+
+  return 0;
+}
