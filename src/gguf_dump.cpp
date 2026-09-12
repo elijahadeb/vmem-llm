@@ -4,6 +4,9 @@
 #include <iostream>
 #include <string>
 
+using u32 = std::uint32_t;
+using u64 = std::uint64_t;
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     std::cerr << "usage: " << argv[0] << " <model.gguf>\n";
@@ -28,7 +31,7 @@ int main(int argc, char **argv) {
   std::cout << "magic:  " << std::string(magic, 4) << "        (cursor now "
             << f.tellg() << ")\n";
 
-  uint32_t version;
+  u32 version;
   if (!f.read(reinterpret_cast<char *>(&version), sizeof(version))) {
     std::cerr << "short read on version\n";
     return 1;
@@ -36,7 +39,7 @@ int main(int argc, char **argv) {
   std::cout << "version: " << version << "         (cursor now " << f.tellg()
             << ")\n";
 
-  uint64_t tensor_count;
+  u64 tensor_count;
   if (!f.read(reinterpret_cast<char *>(&tensor_count), sizeof(tensor_count))) {
     std::cerr << "short read on tensor_count\n";
     return 1;
@@ -44,7 +47,7 @@ int main(int argc, char **argv) {
   std::cout << "tensor_count: " << tensor_count << "    (cursor now "
             << f.tellg() << ")\n";
 
-  uint64_t kv_count;
+  u64 kv_count;
   if (!f.read(reinterpret_cast<char *>(&kv_count), sizeof(kv_count))) {
     std::cerr << "short read on kv_count\n";
     return 1;
