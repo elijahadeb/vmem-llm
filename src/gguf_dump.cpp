@@ -7,9 +7,42 @@
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
 
+std::string read_string(std::ifstream &f) {
+  uint64_t len;
+
+  if (!f.read(reinterpret_cast<char *>(&len), sizeof(len))) {
+    throw std::runtime_error(
+        "failed to read the string length prefix. reached eof early.");
+  }
+
+  const uint64_t MAX_SAFE_LENGTH = 50 * 1024 * 1024;
+
+  if (len > MAX_SAFE_LENGTH) {
+    std::streampos cursor = f.tellg();
+
+    // std::cerr << "\n[FATAL ERROR] read_string sanity check failed!\n"
+    //           << "Read length: " << len << " bytes.\n"
+    //           << "File cursor misaligned at byte offset: " << cursor << " ("
+    //           << std::hex << cursor << std::dec << ")\n"
+    //           << "Aborting to prevent allocation hang.\n\n";
+
+    std::abort();
+  }
+  std::string s(len, '\0');
+
+  if (len > 0) {
+    if (!f.read(&s[0], len)) {
+      throw std::runtime_error(
+          "failed to read string data characters. file truncated.");
+    }
+  }
+
+  return s;
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
-    std::cerr << "usage: " << argv[0] << " <model.gguf>\n";
+    std::cerr << "this is what's expected: " << argv[0] << " <model.gguf>\n";
     return 1;
   }
 
