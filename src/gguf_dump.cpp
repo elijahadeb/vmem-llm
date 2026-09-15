@@ -12,22 +12,25 @@ std::string read_string(std::ifstream &f) {
 
   if (!f.read(reinterpret_cast<char *>(&len), sizeof(len))) {
     throw std::runtime_error(
-        "failed to read the string length prefix. reached eof early.");
+        "failed to read the prefix of the string length. reached eof early.");
   }
+
+  // safety boundary
 
   const uint64_t MAX_SAFE_LENGTH = 50 * 1024 * 1024;
 
   if (len > MAX_SAFE_LENGTH) {
     std::streampos cursor = f.tellg();
 
-    // std::cerr << "\n[FATAL ERROR] read_string sanity check failed!\n"
-    //           << "Read length: " << len << " bytes.\n"
-    //           << "File cursor misaligned at byte offset: " << cursor << " ("
-    //           << std::hex << cursor << std::dec << ")\n"
-    //           << "Aborting to prevent allocation hang.\n\n";
+    std::cerr << "\n[fatal error] read_string sanity check failed!\n"
+              << "the read length is: " << len << " bytes.\n"
+              << "file cursor misaligned at byte offset: " << cursor << " ("
+              << std::hex << cursor << std::dec << ")\n"
+              << "aborting to prevent allocation hang.\n\n";
 
     std::abort();
   }
+  // string buffer
   std::string s(len, '\0');
 
   if (len > 0) {
