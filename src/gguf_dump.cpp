@@ -5,6 +5,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 using u32 = std::uint32_t;
@@ -189,7 +190,8 @@ u64 align_up(u64 position, u64 alignment) {
 
 int main(int argc, char **argv) {
   if (argc != 2) {
-    std::cerr << "this is what's expected: " << argv[0] << " <model.gguf>\n";
+    std::cerr << "this is the expected format: " << argv[0]
+              << " <model.gguf>\n";
     return 1;
   }
 
@@ -198,6 +200,7 @@ int main(int argc, char **argv) {
     std::cerr << "fopen error\n";
     return 1;
   }
+
   try {
     char magic[4];
     if (!f.read(magic, 4)) {
@@ -208,8 +211,8 @@ int main(int argc, char **argv) {
       std::cerr << "not a gguf file\n";
       return 1;
     }
-    std::cout << "magic:  " << std::string(magic, 4) << "        (cursor now "
-              << f.tellg() << ")\n";
+    std::cout << "magic:  " << std::string_view(magic, 4)
+              << "        (cursor now " << f.tellg() << ")\n";
 
     u32 version;
     if (!f.read(reinterpret_cast<char *>(&version), sizeof(version))) {
