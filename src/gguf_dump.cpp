@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
     std::cout << "kv_count: " << kv_count << "        (cursor now " << f.tellg()
               << ")\n";
 
-    u32 alignment = 32; // GGUF default
+    u32 alignment = 32; // GGUF default alignment value
 
     // std::cout << "\n--- METADATA ---\n";
 
